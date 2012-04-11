@@ -13,6 +13,7 @@ parkh = dict()
 events = dict()
 
 def main():
+    desmonth = 04
     beausoupparse()
     #desmonth = raw_input("What month do you want to update (e.g. 04 for April, 11 for November, etc)?: ")
     #parsehours(desmonth)
@@ -20,12 +21,29 @@ def main():
     #exceledit(desmonth)
 
 def beausoupparse():
+    print 'Opening webpage...'
     html = urllib.urlopen('http://disneyworld.disney.go.com/parks/magic-kingdom/calendar/')
+    print 'Creating soup...'
     soup = BeautifulSoup(html)
+    print 'Parsing webpage...'
+
     april_c = soup.find('div', attrs={'id':'april2012'})
     parking_apr = april_c.findAll('div', 'dayContainer')
+    hours = r'\d+:0{2}\s\w{2}\s-\s\d+:0{2}\s\w{2}'
+    type = 'Park Hours|Extra Magic Hours'
     for item in parking_apr:
-        print item.text
+        date = item.find('a').get('href')[-8:]
+        print date[4:6]
+        if date[4:6] != '04':
+            print 'x'
+            continue
+        hrs = item.find('p', attrs={'class':'moreLink'}).text
+        types = re.findall(type,str(hrs))
+        times = re.findall(hours,str(hrs))
+        events = zip(types,times)
+        parkh[str(date)] = events
+        #print date, hrs
+    print parkh
     
 
 def parsehours(desmonth):
@@ -37,7 +55,7 @@ def parsehours(desmonth):
     date = r'2012'+desmonth+'\d{02}'
     hours = r'\d+:0{2}\s\w{2}\s-\s\d+:0{2}\s\w{2}'
     type = 'Park Hours|Extra Magic Hours'
-    #go through page line by line
+    #Go through page line by line
     for line in page:
         times = re.findall(hours, line.lower())
         types = re.findall(type, line)
