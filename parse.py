@@ -5,19 +5,30 @@
 import urllib
 import re
 import time
-desmonth = raw_input("What month do you want to update (e.g. 04 for April, \
-11 for November, etc)?: ")
-readfile = raw_input("What is the name of the excel file you will be editing (include .xls)?: ")
-outfile = raw_input("What do you want the updated file to be saved as (include .xls)?: ")
+from BeautifulSoup import BeautifulSoup
+
+#readfile = raw_input("What is the name of the excel file you will be editing (include .xls)?: ")
+#outfile = raw_input("What do you want the updated file to be saved as (include .xls)?: ")
 parkh = dict()
 events = dict()
 
 def main():
-    parsehours()
-    time.sleep(2)
-    exceledit()
+    beausoupparse()
+    #desmonth = raw_input("What month do you want to update (e.g. 04 for April, 11 for November, etc)?: ")
+    #parsehours(desmonth)
+    #time.sleep(2)
+    #exceledit(desmonth)
 
-def parsehours():
+def beausoupparse():
+    html = urllib.urlopen('http://disneyworld.disney.go.com/parks/magic-kingdom/calendar/')
+    soup = BeautifulSoup(html)
+    april_c = soup.find('div', attrs={'id':'april2012'})
+    parking_apr = april_c.findAll('div', 'dayContainer')
+    for item in parking_apr:
+        print item.text
+    
+
+def parsehours(desmonth):
     source = urllib.urlopen('http://disneyworld.disney.go.com/parks/magic-kingdom/calendar/')
     page = source.readlines()
     print 'Opening webpage...'
@@ -58,7 +69,7 @@ def parsehours():
             parkh[curdate] = events
     print 'Data pulled from calendar'
 
-def exceledit():
+def exceledit(desmonth):
     #open excel sheet
     import xlrd, xlwt, xlutils
     import datetime
@@ -94,24 +105,32 @@ def exceledit():
                 wbook.get_sheet(0).write(5, colnum+4, "")
                 wbook.get_sheet(0).write(7, colnum+4, "")
                 #iterate through hour segments for that day
+                starttime = 7
+                closetime = 12
                 for x in parkh[format]:
                     #if regular hours, insert in "HOURS" row
                     if x[0] == 'Park Hours':
+                        starttime = x[1][0:8]
+                        closetime = x[1][-8:]
                         wbook.get_sheet(0).write(6, colnum+4, x[1].replace(' ',''))
                     #if extra magic hours, insert in respective row
                     if x[0] == 'Extra Magic Hours':
                         #insert in morning row
                         if int(x[1][0:1]) in range(2,9):
+                            starttime = x[1][0:8]
                             wbook.get_sheet(0).write(5, colnum+4, x[1])
                         #insert in evening row
                         else:
+                            closetime = x[1][-8:]
                             wbook.get_sheet(0).write(7, colnum+4, x[1])
+                adjustwait(colnum+4,starttime,closetime)
 
     print 'Done editing. Now saving...'
     wbook.save(outfile)
     print outfile+' saved'
 
-#def adjustwait(colnum):
+def adjustwait(colnum,starttime,closetime):
+    print starttime, closetime
     
 
 if __name__ == '__main__':
