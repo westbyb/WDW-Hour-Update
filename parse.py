@@ -5,47 +5,76 @@
 import urllib
 import re
 import time
+from datetime import datetime, timedelta
 from BeautifulSoup import BeautifulSoup
+import xlrd, xlwt, xlutils
 
 #readfile = raw_input("What is the name of the excel file you will be editing (include .xls)?: ")
 #outfile = raw_input("What do you want the updated file to be saved as (include .xls)?: ")
 parkh = dict()
-events = dict()
 
 def main():
     desmonth = 04
+    readfile = 'test.xls'
+    outfile = 'new.xls'
     beausoupparse()
     #desmonth = raw_input("What month do you want to update (e.g. 04 for April, 11 for November, etc)?: ")
     #parsehours(desmonth)
-    #time.sleep(2)
-    #exceledit(desmonth)
+    time.sleep(2)
+    exceledit(desmonth,readfile,outfile)
+
+def formatdate(rd):
+    if rd[4:5] == '0':                                                  
+        #if the day starts with a 0, strip the 0            
+        if rd[6:7] == '0':
+            curdate = rd[5:6] + "/" + rd[7:8] + "/" + rd[:4]            
+        else:
+            curdate = rd[5:6] + "/" + rd[6:8] +"/" + rd[:4]             
+    else:                                                               
+        #if the day starts with a 0, strip the 0                        
+        if rd[6:7] == '0':                                              
+            curdate = rd[4:6] + "/" + rd[7:8] +"/" + rd[:4]             
+        else:                                                           
+            curdate = rd[4:6] + "/" + rd[6:8] + "/" + rd[:4]
+    return curdate
+
+def parsetime(day,s):
+    #parse 12-hour format
+    return datetime.strptime(day+" "+s, '%m/%d/%Y %I:%M %p')
 
 def beausoupparse():
+    #open the webpage and create a BeautifulSoup object with it
     print 'Opening webpage...'
     html = urllib.urlopen('http://disneyworld.disney.go.com/parks/magic-kingdom/calendar/')
     print 'Creating soup...'
     soup = BeautifulSoup(html)
     print 'Parsing webpage...'
+    events = dict()
 
-    april_c = soup.find('div', attrs={'id':'april2012'})
-    parking_apr = april_c.findAll('div', 'dayContainer')
+    #find the HTML for the month, based on the id (e.g. id=april2012)
+    month_c = soup.find('div', attrs={'id':'april2012'})
+    #find all the day objects in the month
+    parking_month = month_c.findAll('div', 'dayContainer')
+    #regex to find the hours and hours types in parking_month
     hours = r'\d+:0{2}\s\w{2}\s-\s\d+:0{2}\s\w{2}'
     type = 'Park Hours|Extra Magic Hours'
-    for item in parking_apr:
+    #iterate through all the day objects
+    for item in parking_month:
+        #pull out the date from the link (last 8 chars)
         date = item.find('a').get('href')[-8:]
-        print date[4:6]
+        #if the month is outside of the desired range, ignore it and continue
         if date[4:6] != '04':
-            print 'x'
             continue
+        #using regex, find all of the hours and hour types from hrs
         hrs = item.find('p', attrs={'class':'moreLink'}).text
         types = re.findall(type,str(hrs))
         times = re.findall(hours,str(hrs))
+        #create a dict from the types and time (they should allign correctly)
         events = zip(types,times)
-        parkh[str(date)] = events
-        #print date, hrs
-    print parkh
+        #add the event dict into the dictionary for the park on that day
+        parkh[str(formatdate(date))] = events
     
-
+"""
 def parsehours(desmonth):
     source = urllib.urlopen('http://disneyworld.disney.go.com/parks/magic-kingdom/calendar/')
     page = source.readlines()
@@ -86,8 +115,9 @@ def parsehours(desmonth):
             events = zip(types, times)
             parkh[curdate] = events
     print 'Data pulled from calendar'
+"""
 
-def exceledit(desmonth):
+def exceledit(desmonth,readfile,outfile):
     #open excel sheet
     import xlrd, xlwt, xlutils
     import datetime
@@ -102,7 +132,10 @@ def exceledit(desmonth):
     sh = book.sheet_by_index(0)
     #iterate through dates in excel sheet
     for colnum in range(sh.ncols):
-        date = sh.cell_value(3, colnum+4)
+        if colnum in range(0,4):
+            continue
+        
+        date = sh.cell_value(3, colnum)
         #if xlrd finds a date
         if date:
             #grab date data
@@ -119,37 +152,83 @@ def exceledit(desmonth):
                 #format =  str(month) + "/" + str(day) + "/" + str(year)
                 print 'Editing ' + format
                 #clear cells to eliminate old information
-                wbook.get_sheet(0).write(6, colnum+4, "")
-                wbook.get_sheet(0).write(5, colnum+4, "")
-                wbook.get_sheet(0).write(7, colnum+4, "")
+                wbook.get_sheet(0).write(6, colnum, "")
+                wbook.get_sheet(0).write(5, colnum, "")
+                wbook.get_sheet(0).write(7, colnum, "")
+                #set default start and close times. will likely be overwritten
+                starttime = parsetime(format, '10:00 AM')
+                closetime = parsetime(format, '10:00 PM')
                 #iterate through hour segments for that day
-                starttime = 7
-                closetime = 12
                 for x in parkh[format]:
                     #if regular hours, insert in "HOURS" row
                     if x[0] == 'Park Hours':
-                        starttime = x[1][0:8]
-                        closetime = x[1][-8:]
-                        wbook.get_sheet(0).write(6, colnum+4, x[1].replace(' ',''))
+                        #set opening time user park hours
+                        xtime = parsetime(format, x[1][0:8].rstrip())
+                        if xtime < starttime:
+                            starttime = xtime
+                        
+                        #set closing time using park hours
+                        ytime = parsetime(format,x[1][-8:].rstrip())
+                        """
+                        If closing time is in the morning, it will come up as
+                        before whenever the park opens, which will cause
+                        problems. Therefore, if closing time (ytime) is before
+                        opening time (e.g. 3:00 AM), then put closing time to
+                        in the following day.
+                        """
+                        if ytime < starttime:
+                            ytime += timedelta(days=1)
+
+                        if ytime > closetime:
+                            closetime = ytime
+
+                        #write park hours to excel sheet
+                        wbook.get_sheet(0).write(6, colnum, x[1].lower().replace(' ',''))
                     #if extra magic hours, insert in respective row
                     if x[0] == 'Extra Magic Hours':
                         #insert in morning row
                         if int(x[1][0:1]) in range(2,9):
-                            starttime = x[1][0:8]
-                            wbook.get_sheet(0).write(5, colnum+4, x[1])
+                            #set new opening time
+                            xtime = parsetime(format,x[1][0:8].rstrip())
+                            print xtime
+                            if xtime < starttime:
+                                starttime = xtime
+                            #write morning emh to excel sheet
+                            wbook.get_sheet(0).write(5, colnum, x[1].lower().replace(' ',''))
                         #insert in evening row
                         else:
-                            closetime = x[1][-8:]
-                            wbook.get_sheet(0).write(7, colnum+4, x[1])
-                adjustwait(colnum+4,starttime,closetime)
+                            ytime = parsetime(format,x[1][-8:].rstrip())
+                            print ytime
+                            if ytime < starttime:
+                                ytime += timedelta(days=1)
+                            if ytime > closetime:
+                                closetime = ytime
+                            wbook.get_sheet(0).write(7, colnum, x[1].lower().replace(' ',''))
+                        #edit wait times based on open/close times
+                adjustwait(book,wbook,colnum,format,starttime,closetime)
 
     print 'Done editing. Now saving...'
     wbook.save(outfile)
     print outfile+' saved'
 
-def adjustwait(colnum,starttime,closetime):
-    print starttime, closetime
+def adjustwait(book,wbook,colnum,day,starttime,closetime):
+    print 'Opening time: ' + str(starttime)
+    print 'Closing time: ' + str(closetime)
+    cuttime = parsetime(day, '7:00 AM')
     
-
+    sh = book.sheet_by_index(0)
+    for rownum in range(sh.nrows):
+        if rownum in range(0,4):
+            continue
+        ctime = sh.cell_value(rownum, 3)
+        if ctime:
+            ntime = parsetime(day,ctime.replace('.',''))
+            if ntime < cuttime:
+                ntime += timedelta(days=1)
+            if not starttime <= ntime < closetime:
+                #print ntime
+                wbook.get_sheet(0).write(rownum,colnum,'XX')
+        #checktime = 
+    
 if __name__ == '__main__':
     main()
