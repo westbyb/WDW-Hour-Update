@@ -19,7 +19,8 @@ def main():
     outfile = 'new.xls'
     beausoupparse()
     #desmonth = raw_input("What month do you want to update (e.g. 04 for April, 11 for November, etc)?: ")
-    #parsehours(desmonth)
+    #readfile = raw_input("What is the name of the excel file you will be editing (include .xls)?: ")
+    #outfile = raw_input("What do you want the updated file to be saved as (include.xls)?: ")
     time.sleep(2)
     exceledit(desmonth,readfile,outfile)
 
@@ -73,53 +74,10 @@ def beausoupparse():
         events = zip(types,times)
         #add the event dict into the dictionary for the park on that day
         parkh[str(formatdate(date))] = events
+    print 'Done parsing website'
     
-"""
-def parsehours(desmonth):
-    source = urllib.urlopen('http://disneyworld.disney.go.com/parks/magic-kingdom/calendar/')
-    page = source.readlines()
-    print 'Opening webpage...'
-    curdate = 0
-    #look for #:## AM - #:## PM
-    date = r'2012'+desmonth+'\d{02}'
-    hours = r'\d+:0{2}\s\w{2}\s-\s\d+:0{2}\s\w{2}'
-    type = 'Park Hours|Extra Magic Hours'
-    #Go through page line by line
-    for line in page:
-        times = re.findall(hours, line.lower())
-        types = re.findall(type, line)
-        dates = re.search(date, line)
-        #if date is found
-        if dates:
-            start = dates.start()
-            end = dates.end()
-            #get date with format on website
-            rd = line[start:end]
-            #if the month starts with a 0, strip the 0
-            if rd[4:5] == '0':
-                #if the day starts with a 0, strip the 0
-                if rd[6:7] == '0':
-                    curdate = rd[5:6] + "/" + rd[7:8] + "/" + rd[:4]
-                else:
-                    curdate = rd[5:6] + "/" + rd[6:8] +"/" + rd[:4]
-            else:
-                #if the day starts with a 0, strip the 0
-                if rd[6:7] == '0':
-                    curdate = rd[4:6] + "/" + rd[7:8] +"/" + rd[:4]
-                else:
-                    curdate = rd[4:6] + "/" + rd[6:8] + "/" + rd[:4]
-
-        #if #:## - #:## is found, a date has been found
-        if times:
-            #create dictionary of dates, and within that dictionary, have dictionary of hour type and hours
-            events = zip(types, times)
-            parkh[curdate] = events
-    print 'Data pulled from calendar'
-"""
-
 def exceledit(desmonth,readfile,outfile):
     #open excel sheet
-    import xlrd, xlwt, xlutils
     import datetime
     from xlutils.copy import copy
     print 'Opening excel sheet...'
@@ -130,6 +88,7 @@ def exceledit(desmonth,readfile,outfile):
     print 'Done creating new excel sheet'
     
     sh = book.sheet_by_index(0)
+    timestyle = xlwt.easyxf('font: name Verdana; alignment: horizontal center, vertical bottom;')
     #iterate through dates in excel sheet
     for colnum in range(sh.ncols):
         if colnum in range(0,4):
@@ -183,28 +142,26 @@ def exceledit(desmonth,readfile,outfile):
                             closetime = ytime
 
                         #write park hours to excel sheet
-                        wbook.get_sheet(0).write(6, colnum, x[1].lower().replace(' ',''))
+                        wbook.get_sheet(0).write(6, colnum, x[1].lower().replace(' ',''), timestyle)
                     #if extra magic hours, insert in respective row
                     if x[0] == 'Extra Magic Hours':
                         #insert in morning row
                         if int(x[1][0:1]) in range(2,9):
                             #set new opening time
                             xtime = parsetime(format,x[1][0:8].rstrip())
-                            print xtime
                             if xtime < starttime:
                                 starttime = xtime
                             #write morning emh to excel sheet
-                            wbook.get_sheet(0).write(5, colnum, x[1].lower().replace(' ',''))
+                            wbook.get_sheet(0).write(5, colnum, x[1].lower().replace(' ',''),timestyle)
                         #insert in evening row
                         else:
                             ytime = parsetime(format,x[1][-8:].rstrip())
-                            print ytime
                             if ytime < starttime:
                                 ytime += timedelta(days=1)
                             if ytime > closetime:
                                 closetime = ytime
-                            wbook.get_sheet(0).write(7, colnum, x[1].lower().replace(' ',''))
-                        #edit wait times based on open/close times
+                            wbook.get_sheet(0).write(7, colnum, x[1].lower().replace(' ',''),timestyle)
+                #edit wait times based on open/close times
                 adjustwait(book,wbook,colnum,format,starttime,closetime)
 
     print 'Done editing. Now saving...'
@@ -212,23 +169,31 @@ def exceledit(desmonth,readfile,outfile):
     print outfile+' saved'
 
 def adjustwait(book,wbook,colnum,day,starttime,closetime):
+    #optional. just prints out respective open/close time for respective day
     print 'Opening time: ' + str(starttime)
     print 'Closing time: ' + str(closetime)
+    """
+    set cutoff time for current day/next day (i.e. times that are before 7:00AM
+    are likely going to be early hour next day [e.g. 3:00 AM, etc])
+    """
     cuttime = parsetime(day, '7:00 AM')
     
     sh = book.sheet_by_index(0)
     for rownum in range(sh.nrows):
+        #skip the first four rows, as they contain no time information
         if rownum in range(0,4):
             continue
+        #grab cell value (time)
         ctime = sh.cell_value(rownum, 3)
         if ctime:
             ntime = parsetime(day,ctime.replace('.',''))
+            #if the time is before 7:00 AM, change to next day
             if ntime < cuttime:
                 ntime += timedelta(days=1)
+            #if the time is not within hours of operation, set the wait time
             if not starttime <= ntime < closetime:
-                #print ntime
-                wbook.get_sheet(0).write(rownum,colnum,'XX')
-        #checktime = 
+                style = xlwt.easyxf('font: name Verdana; alignment: horizontal center; pattern: pattern solid, fore_color light-green;')
+                wbook.get_sheet(0).write(rownum,colnum,'XX',style)
     
 if __name__ == '__main__':
     main()
