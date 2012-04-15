@@ -1,0 +1,3 @@
+WDW-Hour-Update
+
+Script takes the information provided on the Walt Disney World calendar website, parses the individual day into Park Hours and Exended Magic Hours, and updates an excel file based on those respective hours for use elsewhere.
