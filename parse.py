@@ -14,10 +14,10 @@ import xlrd, xlwt, xlutils
 parkh = dict()
 
 def main():
-    desmonth = 04
+    desmonth = '05'
     readfile = 'test.xls'
     outfile = 'new.xls'
-    beausoupparse()
+    beausoupparse(desmonth)
     #desmonth = raw_input("What month do you want to update (e.g. 04 for April, 11 for November, etc)?: ")
     #readfile = raw_input("What is the name of the excel file you will be editing (include .xls)?: ")
     #outfile = raw_input("What do you want the updated file to be saved as (include.xls)?: ")
@@ -43,7 +43,7 @@ def parsetime(day,s):
     #parse 12-hour format
     return datetime.strptime(day+" "+s, '%m/%d/%Y %I:%M %p')
 
-def beausoupparse():
+def beausoupparse(desmonth):
     #open the webpage and create a BeautifulSoup object with it
     print 'Opening webpage...'
     html = urllib.urlopen('http://disneyworld.disney.go.com/parks/magic-kingdom/calendar/')
@@ -51,9 +51,21 @@ def beausoupparse():
     soup = BeautifulSoup(html)
     print 'Parsing webpage...'
     events = dict()
+    strmonth = {'01': 'january', 
+                '02': 'february', 
+                '03': 'march', 
+                '04': 'april', 
+                '05': 'may', 
+                '06': 'june', 
+                '07': 'july', 
+                '08': 'august', 
+                '09': 'september', 
+                '10': 'october', 
+                '11': 'november', 
+                '12': 'december'}
 
     #find the HTML for the month, based on the id (e.g. id=april2012)
-    month_c = soup.find('div', attrs={'id':'april2012'})
+    month_c = soup.find('div', attrs={'id':strmonth[str(desmonth)]+'2012'})
     #find all the day objects in the month
     parking_month = month_c.findAll('div', 'dayContainer')
     #regex to find the hours and hours types in parking_month
@@ -64,7 +76,7 @@ def beausoupparse():
         #pull out the date from the link (last 8 chars)
         date = item.find('a').get('href')[-8:]
         #if the month is outside of the desired range, ignore it and continue
-        if date[4:6] != '04':
+        if date[4:6] != desmonth:
             continue
         #using regex, find all of the hours and hour types from hrs
         hrs = item.find('p', attrs={'class':'moreLink'}).text
@@ -192,8 +204,8 @@ def adjustwait(book,wbook,colnum,day,starttime,closetime):
                 ntime += timedelta(days=1)
             #if the time is not within hours of operation, set the wait time
             if not starttime <= ntime < closetime:
-                style = xlwt.easyxf('font: name Verdana; alignment: horizontal center; pattern: pattern solid, fore_color light-green;')
-                wbook.get_sheet(0).write(rownum,colnum,'XX',style)
+                style = xlwt.easyxf('font: name Verdana; alignment: horizontal center; pattern: pattern solid, fore_color light-orange;')
+                wbook.get_sheet(0).write(rownum,colnum,'CL',style)
     
 if __name__ == '__main__':
     main()
