@@ -14,6 +14,24 @@ import xlrd, xlwt, xlutils
 parkh = dict()
 
 def main():
+    print """
+     $OOOOOOOOO7                                                                
+   :OO         +OOOOO              7$$.                                         
+                    +OOO:       $$$$$$7$$                                       
+               .       ,OOO    $$$$$   ?$                                       
+               OO         OOO. ~$$$$$$$,                                        
+               OO           OOO $                                               
+           OOOOOOOOOOOO7     OOO  $   .ZZZZZZZZ      $$    ,=??=    ,           
+        OO     OO ~ZOOOOO7    OO7:$= ZZZ:       $$$  $$   ???????  77  ?777     
+        O     :OO      7O+    OO:?$$ ZZZZZZZZ:  $$$$  $$  ??,,    7~ ?77. 7     
+         ~O+  7OO            OOO $$$ Z7ZZZZZ ZZ,$  $$ $$ ??      77,777  77     
+            OOOOO         7OOO7  =$$ 7ZZZZZZZZ~I$   $$$ ???????? 7777 ,777      
+              OOOOOOOOOOOOOO      :      :=:    I        ????:   7777777        
+               Z.                                               777             
+                                                                77~             
+                                                               777              
+                                                               777              
+"""
     desmonth = '05'
     readfile = 'test.xls'
     outfile = 'new.xls'
